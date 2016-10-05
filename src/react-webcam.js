@@ -10,7 +10,8 @@ export default class Webcam extends Component {
     audio: true,
     screenshotFormat: 'image/webp',
     onUserMedia: () => {},
-    aspectRatio: 16/9
+    aspectRatio: 16/9,
+    mirrored: false
   };
 
   static propTypes = {
@@ -224,9 +225,17 @@ export default class Webcam extends Component {
 
   render() {
     const containerStyle = {
-      width: "100%",
+      width: '100%',
       height: `${100/this.props.aspectRatio}%`,
-      overflow: "hidden"
+      overflow: 'hidden',
+      position: 'relative'
+    };
+
+    const videoStyle = {
+      height: '100%',
+      left: '50%',
+      position: 'absolute',
+      transform: 'translateX(-50%) scaleX(-1)',
     };
 
     return (
@@ -236,7 +245,7 @@ export default class Webcam extends Component {
         src={this.state.src}
         muted={this.props.muted}
         className={this.props.className}
-        style={{ height: "100%" }}
+        style={videoStyle}
         ref={(videoElement) => this.videoElement = videoElement}
         />
       </div>
