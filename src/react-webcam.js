@@ -1,5 +1,4 @@
 import React, { Component, PropTypes } from 'react';
-import { findDOMNode } from 'react-dom';
 
 function hasGetUserMedia() {
   return !!(navigator.getUserMedia || navigator.webkitGetUserMedia ||
@@ -9,30 +8,23 @@ function hasGetUserMedia() {
 export default class Webcam extends Component {
   static defaultProps = {
     audio: true,
-    height: 480,
-    width: 640,
     screenshotFormat: 'image/webp',
-    onUserMedia: () => {}
+    onUserMedia: () => {},
+    aspectRatio: 16/9
   };
 
   static propTypes = {
     audio: PropTypes.bool,
     muted: PropTypes.bool,
     onUserMedia: PropTypes.func,
-    height: PropTypes.oneOfType([
-      PropTypes.number,
-      PropTypes.string
-    ]),
-    width: PropTypes.oneOfType([
-      PropTypes.number,
-      PropTypes.string
-    ]),
     screenshotFormat: PropTypes.oneOf([
       'image/webp',
       'image/png',
       'image/jpeg'
     ]),
-    className: PropTypes.string
+    className: PropTypes.string,
+    mirrored: PropTypes.bool,
+    aspectRatio: PropTypes.number
   };
 
   static mountedInstances = [];
@@ -178,34 +170,76 @@ export default class Webcam extends Component {
   getCanvas() {
     if (!this.state.hasUserMedia) return null;
 
-    const video = findDOMNode(this);
+    const video = this.videoElement;
+
+    let drawRect = {
+      x: 0,
+      y: 0,
+      width: video.videoWidth,
+      height: video.videoHeight
+    };
+
     if (!this.ctx) {
       let canvas = document.createElement('canvas');
-      const aspectRatio = video.videoWidth / video.videoHeight;
+      let context = canvas.getContext('2d');
 
-      canvas.width = video.clientWidth;
-      canvas.height = video.clientWidth / aspectRatio;
+      const videoAspectRatio = video.videoWidth / video.videoHeight;
+      const devicePixelRatio = window.devicePixelRatio || 1;
+      const backingStoreRatio = context.webkitBackingStorePixelRatio ||
+        context.mozBackingStorePixelRatio ||
+        context.msBackingStorePixelRatio ||
+        context.oBackingStorePixelRatio ||
+        context.backingStorePixelRatio || 1;
+      const ratio = devicePixelRatio / backingStoreRatio;
+
+      canvas.width  = video.clientWidth * ratio;
+      canvas.height = (video.clientWidth / this.props.aspectRatio) * ratio;
+
+      // Calculate drawRect
+      if (this.props.aspectRatio >= 1) {
+        drawRect.height = canvas.height;
+        drawRect.width  = canvas.height * videoAspectRatio;
+        drawRect.x = (canvas.width - drawRect.width) / 2;
+      } else {
+        drawRect.width  = canvas.width;
+        drawRect.height = canvas.width / videoAspectRatio;
+        drawRect.y = (canvas.height - drawRect.height) / 2;
+      }
 
       this.canvas = canvas;
-      this.ctx = canvas.getContext('2d');
+
+      if (this.props.mirrored) {
+        context.translate(canvas.width, 0);
+        context.scale(-1, 1);
+      }
+      this.ctx = context;
+
     }
 
     const {ctx, canvas} = this;
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    ctx.drawImage(video, drawRect.x, drawRect.y, drawRect.width, drawRect.height);
 
     return canvas;
   }
 
   render() {
+    const containerStyle = {
+      width: "100%",
+      height: `${100/this.props.aspectRatio}%`,
+      overflow: "hidden"
+    };
+
     return (
-      <video
+      <div className="react-webcam__container" style={containerStyle}>
+        <video
         autoPlay
-        width={this.props.width}
-        height={this.props.height}
         src={this.state.src}
         muted={this.props.muted}
         className={this.props.className}
-      />
+        style={{ height: "100%" }}
+        ref={(videoElement) => this.videoElement = videoElement}
+        />
+      </div>
     );
   }
 }
